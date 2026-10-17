@@ -287,8 +287,10 @@ function pcFindClamp(el) {
     const cls = String(node.getAttribute('class') || '');
     const style = node.getAttribute('style') || '';
 
-    // 1. height clamping: content taller than the box that shows it
-    if (cs && cs.overflow !== 'visible' && node.scrollHeight > node.clientHeight + 8 && node.clientHeight > 0) {
+    // 1. height clamping: content taller than the box that shows it.
+    // Only hidden/clip actually remove content. auto/scroll means the box is
+    // scrollable, which is normal and must never be reported as a clamp.
+    if (cs && (cs.overflow === 'hidden' || cs.overflow === 'clip') && node.scrollHeight > node.clientHeight + 8 && node.clientHeight > 0) {
       hints.push({ kind: 'height-clamped', selector: pcCssPath(node), overflow: cs.overflow, hiddenPx: node.scrollHeight - node.clientHeight });
     }
     // 2. a gradient / fade class or inline mask does the same thing visually
@@ -316,15 +318,59 @@ function pcFindFade(el) {
     const cs = getComputedStyle(sample);
     const m = String(cs.color || '').match(/rgba?\(([^)]+)\)/);
     let alpha = 1;
+    let rgb = null;
     if (m) {
       const parts = m[1].split(',').map((s) => parseFloat(s.trim()));
       if (parts.length === 4) alpha = parts[3];
+      rgb = parts.slice(0, 3);
     }
     const op = parseFloat(cs.opacity);
+
+    // White text on a white background is "hidden" in every way that matters,
+    // and neither colour alpha nor opacity can express it. Compare the text
+    // against the nearest actually-painted background.
+    let contrast = null;
+    let bg = null;
+    if (rgb && rgb.length === 3) {
+      let node = sample;
+      let depth = 0;
+      while (node && node.nodeType === 1 && depth < 8) {
+        const bc = String(getComputedStyle(node).backgroundColor || '');
+        const bm = bc.match(/rgba?\(([^)]+)\)/);
+        if (bm) {
+          const bp = bm[1].split(',').map((s) => parseFloat(s.trim()));
+          const ba = bp.length === 4 ? bp[3] : 1;
+          if (ba > 0.5) {
+            bg = bp.slice(0, 3);
+            break;
+          }
+        }
+        node = node.parentElement;
+        depth++;
+      }
+      const b = bg && bg.length === 3 ? bg : [255, 255, 255];
+      const lum = (c) => {
+        const f = c.map((v) => {
+          const s = v / 255;
+          return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+        });
+        return 0.2126 * f[0] + 0.7152 * f[1] + 0.0722 * f[2];
+      };
+      const l1 = lum(rgb);
+      const l2 = lum(b);
+      contrast = Math.round(((Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05)) * 100) / 100;
+
+      const nearWhiteText = rgb.every((v) => v > 235);
+      const whiteBg = b.every((v) => v > 235);
+      if (nearWhiteText && whiteBg) alpha = 0.02;
+    }
+
     return {
       color: cs.color,
       alpha: Number.isFinite(alpha) ? alpha : 1,
       opacity: Number.isFinite(op) ? op : 1,
+      background: 'rgb(' + (bg && bg.length === 3 ? bg : [255, 255, 255]).join(', ') + ')',
+      contrast,
       selector: pcCssPath(sample)
     };
   } catch (e) {
@@ -354,6 +400,9 @@ function pcFindBlockers(el) {
     }
     if (cs.position !== 'fixed' && cs.position !== 'absolute') continue;
     if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+    // An invisible or non-interactive layer cannot block anything.
+    if (parseFloat(cs.opacity) === 0) continue;
+    if (cs.pointerEvents === 'none') continue;
     const r = n.getBoundingClientRect();
     if (r.width < 120 || r.height < 120) continue;
     const overlapW = Math.min(rect.right, r.right) - Math.max(rect.left, r.left);

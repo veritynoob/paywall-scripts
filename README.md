@@ -142,12 +142,13 @@
 | Wall Street Journal | 混合：客户端 gate + 服务端按配额截断 | 规则默认启用 |
 | Bloomberg | **服务端硬墙** + 机器人检测 | `redirect` 到 archive.ph，**默认关闭** |
 | Medium | 服务端 | `redirect` 到 freedium，**默认关闭** |
-| Washington Post | 未验证 | **尚未添加**，见下 |
+| Washington Post | 软墙但很隐蔽：正文在 `.meteredContent` 里被**刷成纯白** + `overflow: clip` | 规则默认启用，实测可修 |
 
-**关于 Washington Post**：该站对非浏览器客户端直接拒绝请求（403 / 请求失败），所以作者
-**无法**从测试环境验证它的线上 DOM，也就**没有**凭猜测塞一条规则进去。请在你自己的登录会话里用
-**Check the page I am on → Find paywall elements**，把弹出的 `VERDICT` 和选择器发出来，再按需添加。
-裁决会直接告诉你是 `server-truncated`（只能走镜像）还是可修的。
+**关于 Washington Post**：它的墙很隐蔽——正文其实**全在 HTML 里**（4107 个字符），但被 `.meteredContent`
+刷成纯白、再用 `overflow: clip` 裁掉，所以只看得见前两行。规则会恢复颜色与高度，并把 `#paywall-*`
+浮层变成**透明且不接收点击**（而不是删除——那个容器可能包着正文，删了会连正文一起没）。
+实测数据来自扩展自己的诊断：`VERDICT: VISUALLY TRUNCATED` + `text colour: rgb(255,255,255)` +
+`[height-clamped] html ... hiddenPx 2892`。
 
 ---
 

@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "debug": true,
   "scripts": [
     {
@@ -319,6 +319,58 @@
           "alsoIfThin": true,
           "minChars": 2500,
           "waitMs": 3000
+        }
+      ]
+    },
+    {
+      "id": "washingtonpost-paywall",
+      "name": "Washington Post — metered content + paywall modal",
+      "enabled": true,
+      "runAt": "document_start",
+      "matches": [
+        "https://*.washingtonpost.com/*",
+        "https://washingtonpost.com/*"
+      ],
+      "rules": [
+        {
+          "type": "css",
+          "hide": [
+            "#paywall-ui-responsive-modal",
+            "[data-testid=\"subscribe-promo\"]",
+            "[data-testid=\"subscribe-promo-button\"]",
+            "[data-testid=\"subscribe-cta-drawer\"]",
+            "[class*=\"paywall\" i]",
+            "[class*=\"Paywall\" i]"
+          ],
+          "css": "html, body { overflow: visible !important; overflow-y: auto !important; height: auto !important; max-height: none !important; }\nhtml { clip-path: none !important; }\n\n/* WaPo marks the gated block .meteredContent and repaints its text pure white,\n   so the article is present but invisible. Restore colour, display and size. */\n.meteredContent, .meteredContent .teaser-content, .meteredContent .article-body,\nmain.grid-main-standard, article.grid-article, .grid-body {\n  display: block !important;\n  max-height: none !important;\n  height: auto !important;\n  overflow: visible !important;\n  -webkit-mask-image: none !important;\n  mask-image: none !important;\n  filter: none !important;\n  -webkit-filter: none !important;\n  opacity: 1 !important;\n}\n.meteredContent { color: inherit !important; }\n.meteredContent p, .meteredContent div, .meteredContent span, .meteredContent li,\n.meteredContent h2, .meteredContent h3, .article-body p, .article-body div {\n  color: inherit !important;\n  opacity: 1 !important;\n}\n/* the reader-repaint turns body text pure white; give it real contrast instead */\n.wpds-c-PJLV.article-body, .article-body {\n  --wpds-colors-foreground: #111 !important;\n}\n[role=\"dialog\"], [aria-modal=\"true\"] { display: none !important; }\n\n/* The paywall WRAPPER can contain the article, so it must never be display:none.\n   Make it invisible and non-interactive instead, which leaves content intact. */\n[id^=\"paywall-\"] {\n  opacity: 0 !important;\n  pointer-events: none !important;\n  background: transparent !important;\n  box-shadow: none !important;\n}\n[id^=\"paywall-\"] [role=\"dialog\"], [id^=\"paywall-\"] [aria-modal=\"true\"] { display: none !important; }"
+        },
+        {
+          "type": "untruncate",
+          "selectors": ["html", "body", "main", "article", ".meteredContent", ".grid-body"],
+          "attrs": ["data-truncated", "isAccessibleForFree", "data-metered", "data-paywalled", "data-gated"]
+        },
+        {
+          "type": "unhide",
+          "selectors": [".meteredContent", ".teaser-content", ".article-body", "article.grid-article", "main.grid-main-standard"],
+          "attrs": ["hidden", "aria-hidden", "inert", "data-locked"]
+        },
+        {
+          "type": "nukeSelector",
+          "selectors": [
+            "#paywall-ui-responsive-modal",
+            "div[id^=\"paywall-\"][role=\"dialog\"]",
+            "[data-testid=\"subscribe-promo\"]"
+          ]
+        },
+        {
+          "type": "click",
+          "selectors": [
+            "button[aria-label*=\"close\" i]",
+            "[data-testid=\"close-paywall\"]",
+            "[data-testid=\"paywall-close\"]"
+          ],
+          "tries": 10,
+          "gap": 300
         }
       ]
     },

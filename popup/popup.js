@@ -861,7 +861,12 @@ $('report').addEventListener('click', async () => {
     if (m.fade) {
       lines.push('');
       lines.push('text colour       : ' + m.fade.color + '  (alpha ' + m.fade.alpha + ', opacity ' + m.fade.opacity + ')');
-      if (m.fade.alpha < 0.95) lines.push('  ^ the text is FADED — that is the "only two lines" effect');
+      if (m.fade.background) {
+        lines.push('background behind : ' + m.fade.background + '   contrast ' + m.fade.contrast + ':1');
+      }
+      if (m.fade.alpha < 0.95 || m.fade.opacity < 0.95) {
+        lines.push('  ^ the text is FADED/WASHED OUT — that is the "only the first lines" effect');
+      }
     }
     if (m.clampHints && m.clampHints.length) {
       lines.push('');
