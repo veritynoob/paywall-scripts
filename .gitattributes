@@ -1,0 +1,6 @@
+# Keep source line endings stable across platforms. Chrome does not care, but
+# Windows checkouts do, and CRLF churn makes every diff look rewritten.
+* text=auto eol=lf
+
+# Binary assets must never be normalised.
+*.png binary
