@@ -1,0 +1,19 @@
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# editor
+.vscode/
+.idea/
+*.swp
+
+# dependencies / temp
+node_modules/
+.dsh-tmp/
+*.log
+
+# test profiles and build output
+paywall-e2e-*/
+dist/
+*.zip

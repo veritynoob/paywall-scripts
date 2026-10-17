@@ -1,0 +1,376 @@
+{
+  "version": 2,
+  "debug": true,
+  "scripts": [
+    {
+      "id": "nytimes-paywall",
+      "name": "New York Times — soft paywall (regwall / meter)",
+      "enabled": true,
+      "runAt": "document_start",
+      "matches": [
+        "https://*.nytimes.com/*",
+        "https://nytimes.com/*"
+      ],
+      "rules": [
+        {
+          "type": "cookie",
+          "cookies": [
+            { "name": "NYT-S", "domain": ".nytimes.com" },
+            { "name": "nyt-a", "domain": ".nytimes.com" },
+            { "name": "nyt-gdpr", "domain": ".nytimes.com" },
+            { "name": "nyt-purr", "domain": ".nytimes.com" },
+            { "name": "datadome", "domain": ".nytimes.com" }
+          ]
+        },
+        {
+          "type": "storage",
+          "local": [
+            "articleCount",
+            "meter",
+            "nytd_",
+            "nyt_",
+            "gateway",
+            "gate-",
+            "regi",
+            "paywall",
+            "asset-sw",
+            "-meter",
+            "-regi",
+            "-paywall",
+            "-gate"
+          ],
+          "session": ["articleCount", "meter", "gateway", "regi", "paywall"]
+        },
+        {
+          "type": "css",
+          "hide": [
+            "div[data-testid=\"inline-message\"]",
+            "div[data-testid=\"paywall\"]",
+            "div[data-testid=\"gateway\"]",
+            "[id^=\"gateway\"]",
+            "[id*=\"paywall\"]:not(article):not(main):not([data-testid=\"articleBody\"]):not([name=\"articleBody\"])",
+            "[id*=\"regwall\"]:not(article):not(main)",
+            "[class*=\"Paywall\"]:not(article):not(main)",
+            "[class*=\"Regwall\"]:not(article):not(main)",
+            "[class*=\"StoryGate\"]",
+            "[class*=\"Metered\"]:not(article):not(main)",
+            "[data-testid=\"expanded-dock\"]",
+            "#gateway-content",
+            "#app > div[role=\"dialog\"]",
+            "[role=\"dialog\"][aria-modal=\"true\"]",
+            "div[class*=\"Overlay\"][class*=\"modal\"]",
+            "div#overlay",
+            "[class*=\"LyAIy\"]",
+            "[class*=\"TYy3l\"]",
+            "[class*=\"yQh3H\"]",
+            "[class*=\"fMxBa\"]",
+            "[class*=\"AccessibilitySkipLink\"] + div[aria-hidden=\"true\"]",
+            "[data-testid=\"notification-banner\"]"
+          ],
+          "css": "html.paywall-scripts-on body { overflow: auto !important; position: static !important; height: auto !important; }\n#site-content { filter: none !important; -webkit-filter: none !important; }\narticle, section[name=\"articleBody\"], [data-testid=\"articleBody\"] { filter: none !important; -webkit-filter: none !important; max-height: none !important; }\n[class*=\"Gradient\"], [class*=\"gradient\"], [class*=\"Fade\"], [class*=\"fade\"] { background-image: none !important; }\n[aria-hidden=\"true\"]:not(script):not(style):not([data-paywall-keep]) { pointer-events: auto !important; }"
+        },
+        {
+          "type": "untruncate",
+          "selectors": ["html", "body", "article", "#site-content"],
+          "attrs": ["data-truncated", "isAccessibleForFree", "data-metered"]
+        },
+        {
+          "type": "unhide",
+          "selectors": [
+            "[data-testid=\"articleBody\"]",
+            "section[name=\"articleBody\"]",
+            "#site-content",
+            "article"
+          ],
+          "attrs": ["hidden", "aria-hidden", "inert", "data-locked"]
+        },
+        {
+          "type": "click",
+          "selectors": [
+            "button[data-testid=\"ContinueReading\"]",
+            "button[data-testid=\"expanded-dock-close\"]",
+            "button[aria-label=\"Close\"]",
+            "button[aria-label=\"Dismiss\"]",
+            "a[data-testid=\"login-link\"]"
+          ],
+          "tries": 14,
+          "gap": 300
+        },
+        {
+          "type": "blockScripts",
+          "patterns": [
+            "*meter*",
+            "*paywall*",
+            "*regwall*",
+            "*regi-wall*",
+            "*regiwall*",
+            "*gateway*",
+            "*gate-*",
+            "*truncate*"
+          ]
+        },
+        {
+          "type": "text",
+          "selectors": [
+            "#gateway-content",
+            "[data-testid=\"gateway\"]",
+            "[class*=\"Paywall\"]",
+            "[class*=\"Regwall\"]",
+            "[class*=\"InlineMessage\"]",
+            "[data-testid=\"inline-message\"]",
+            "[role=\"dialog\"]"
+          ],
+          "phrases": ["subscribe to continue reading", "you've reached your limit", "already a subscriber?"]
+        },
+        {
+          "type": "nukeSelector",
+          "selectors": [
+            "#gateway-content",
+            "div[id*=\"paywall\"]",
+            "div[id*=\"regwall\"]",
+            "div[data-testid=\"paywall\"]",
+            "[class*=\"PaywallOverlay\"]",
+            "[class*=\"PaywallModal\"]",
+            "[class*=\"RegwallModal\"]"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "economist-paywall",
+      "name": "The Economist — meter / regwall overlay",
+      "enabled": true,
+      "runAt": "document_start",
+      "matches": [
+        "https://*.economist.com/*",
+        "https://economist.com/*"
+      ],
+      "rules": [
+        {
+          "type": "cookie",
+          "cookies": [
+            { "name": "econ_meter", "domain": ".economist.com" },
+            { "name": "econ_restricted", "domain": ".economist.com" },
+            { "name": "ec_article_meter", "domain": ".economist.com" },
+            { "name": "regwall", "domain": ".economist.com" },
+            { "name": "signed_in", "domain": ".economist.com" }
+          ]
+        },
+        {
+          "type": "storage",
+          "local": ["econ_", "economist", "meter", "regwall", "gateway", "articleCount", "nw_"],
+          "session": ["meter", "regwall", "gateway"]
+        },
+        {
+          "type": "css",
+          "hide": [
+            "[class*=\"Regwall\" i]",
+            "[class*=\"regwall\" i]",
+            "[id*=\"regwall\" i]",
+            "[class*=\"Paywall\" i]",
+            "[id*=\"paywall\" i]",
+            "[data-test-id*=\"regwall\" i]",
+            "[data-testid*=\"regwall\" i]",
+            "[class*=\"MeteredContent\" i]",
+            "[class*=\"SubscriptionGate\" i]",
+            "[aria-label*=\"subscribe\" i]",
+            "[class*=\"interstitial\" i]",
+            "[class*=\"Barrier\" i]"
+          ],
+          "css": "body { overflow: auto !important; position: static !important; height: auto !important; }\nhtml { overflow: auto !important; }\narticle, main, [class*=\"article\" i], [class*=\"Article\" i], [data-test-id*=\"article\" i] {\n  -webkit-mask-image: none !important;\n  mask-image: none !important;\n  filter: none !important;\n  -webkit-filter: none !important;\n  max-height: none !important;\n  height: auto !important;\n  overflow: visible !important;\n  opacity: 1 !important;\n}\n/* The fade often sits on the text elements themselves, not on the container, so\n   resetting the container alone is not enough. */\narticle p, article span, article div, article section, article li,\nmain p, main div, main span {\n  opacity: 1 !important;\n  -webkit-mask-image: none !important;\n  mask-image: none !important;\n  filter: none !important;\n  -webkit-filter: none !important;\n  max-height: none !important;\n}\n[class*=\"gradient\" i], [class*=\"Gradient\" i], [class*=\"fade\" i], [class*=\"Fade\" i], [class*=\"truncat\" i], [class*=\"clamp\" i], [class*=\"readmore\" i], [class*=\"read-more\" i] {\n  background-image: none !important;\n  background: none !important;\n  -webkit-mask-image: none !important;\n  mask-image: none !important;\n}\narticle p:last-child::after, article::after { display: none !important; background: none !important; content: none !important; }"
+        },
+        {
+          "type": "untruncate",
+          "selectors": ["html", "body", "article", "main", "#content", "[class*=\"article\" i]"],
+          "attrs": ["data-truncated", "isAccessibleForFree", "data-metered", "data-paywalled"]
+        },
+        {
+          "type": "unhide",
+          "selectors": ["article", "main", "[class*=\"article-body\" i]", "[class*=\"article__body\" i]", "[class*=\"ArticleBody\" i]"],
+          "attrs": ["hidden", "aria-hidden", "inert", "data-locked"]
+        },
+        {
+          "type": "click",
+          "selectors": [
+            "button[aria-label*=\"close\" i]",
+            "button[aria-label*=\"dismiss\" i]",
+            "button[class*=\"close\" i]",
+            "button[class*=\"Close\"]"
+          ],
+          "tries": 10,
+          "gap": 300
+        },
+        {
+          "type": "blockScripts",
+          "patterns": ["*regwall*", "*paywall*", "*meter*", "*barrier*"]
+        },
+        {
+          "type": "nukeSelector",
+          "selectors": [
+            "[id*=\"regwall\" i]",
+            "[class*=\"Regwall\" i][role=\"dialog\"]",
+            "[class*=\"RegwallModal\" i]",
+            "div[class*=\"interstitial\" i][class*=\"overlay\" i]"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "wsj-paywall",
+      "name": "Wall Street Journal — meter / gate",
+      "enabled": true,
+      "runAt": "document_start",
+      "matches": [
+        "https://*.wsj.com/*",
+        "https://wsj.com/*"
+      ],
+      "rules": [
+        {
+          "type": "cookie",
+          "cookies": [
+            { "name": "wsjregion", "domain": ".wsj.com" },
+            { "name": "wsjmeta", "domain": ".wsj.com" },
+            { "name": "DJSESSION", "domain": ".wsj.com" },
+            { "name": "barrier", "domain": ".wsj.com" },
+            { "name": "wsj_meter", "domain": ".wsj.com" }
+          ]
+        },
+        {
+          "type": "storage",
+          "local": ["wsj", "WSJ", "meter", "barrier", "gate", "paywall", "articleCount", "dowjones"],
+          "session": ["meter", "barrier", "paywall"]
+        },
+        {
+          "type": "css",
+          "hide": [
+            "[class*=\"Paywall\" i]",
+            "[id*=\"paywall\" i]",
+            "[data-testid*=\"paywall\" i]",
+            "[class*=\"Regwall\" i]",
+            "[id*=\"regwall\" i]",
+            "[class*=\"Barrier\" i]",
+            "[data-testid=\"gate\"]",
+            "[class*=\"gate\" i][class*=\"modal\" i]",
+            "[class*=\"Meter\" i][class*=\"Overlay\" i]",
+            "[class*=\"cx-Paywall\" i]",
+            "[data-testid=\"cx-paywall\" i]",
+            "[class*=\"wsj-modal\" i]",
+            "[class*=\"Membership\" i][role=\"dialog\"]"
+          ],
+          "css": "body { overflow: auto !important; position: static !important; height: auto !important; }\nhtml { overflow: auto !important; }\narticle, main, [class*=\"article-content\" i], [class*=\"ArticleBody\" i] { filter: none !important; -webkit-filter: none !important; max-height: none !important; overflow: visible !important; }"
+        },
+        {
+          "type": "untruncate",
+          "selectors": ["html", "body", "article", "main", "[class*=\"article\" i]"],
+          "attrs": ["data-truncated", "isAccessibleForFree", "data-metered", "data-paywalled", "data-gated"]
+        },
+        {
+          "type": "unhide",
+          "selectors": [
+            "article",
+            "main",
+            "[class*=\"article-content\" i]",
+            "[class*=\"ArticleBody\" i]",
+            "[data-testid=\"article-body\"]"
+          ],
+          "attrs": ["hidden", "aria-hidden", "inert", "data-locked"]
+        },
+        {
+          "type": "click",
+          "selectors": [
+            "button[aria-label*=\"close\" i]",
+            "button[data-testid*=\"close\" i]",
+            "button[class*=\"close\" i]",
+            "a[data-testid=\"continue-reading\"]"
+          ],
+          "tries": 12,
+          "gap": 300
+        },
+        {
+          "type": "blockScripts",
+          "patterns": ["*paywall*", "*barrier*", "*meter*", "*regwall*", "*gate*"]
+        },
+        {
+          "type": "nukeSelector",
+          "selectors": [
+            "div[id*=\"paywall\" i]",
+            "div[class*=\"PaywallModal\" i]",
+            "[data-testid=\"cx-paywall\"]",
+            "[class*=\"Barrier\" i][role=\"dialog\"]"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "bloomberg-hardwall",
+      "name": "Bloomberg — server-side wall, read via archive mirror",
+      "enabled": false,
+      "runAt": "document_start",
+      "matches": [
+        "https://*.bloomberg.com/news/*",
+        "https://bloomberg.com/news/*"
+      ],
+      "rules": [
+        {
+          "type": "redirect",
+          "when": ["https://*.bloomberg.com/news/articles/*", "https://*.bloomberg.com/news/features/*"],
+          "toUrl": "https://archive.ph/newest/{href}",
+          "onlyIfGated": true,
+          "alsoIfThin": true,
+          "minChars": 2500,
+          "waitMs": 3000
+        }
+      ]
+    },
+    {
+      "id": "medium-freedium",
+      "name": "Medium / Towards Data Science -> read on freedium",
+      "enabled": false,
+      "runAt": "document_start",
+      "matches": [
+        "https://medium.com/*",
+        "https://*.medium.com/*",
+        "https://towardsdatascience.com/*"
+      ],
+      "rules": [
+        {
+          "type": "redirect",
+          "when": ["https://medium.com/*/*", "https://*.medium.com/*/*", "https://towardsdatascience.com/*"],
+          "toUrl": "https://freedium.cfd/{href}"
+        }
+      ]
+    },
+    {
+      "id": "generic-client-side",
+      "name": "Generic client-side gate (overlay + hidden body)",
+      "enabled": false,
+      "runAt": "document_start",
+      "matches": ["https://*/*"],
+      "rules": [
+        {
+          "type": "css",
+          "hide": [
+            "[id*=\"paywall\" i]",
+            "[class*=\"paywall\" i]",
+            "[id*=\"subscribe-wall\" i]",
+            "[class*=\"subscription-wall\" i]",
+            "[class*=\"gate-overlay\" i]",
+            "[class*=\"piano-modal\" i]",
+            "[class*=\"tp-modal\" i]",
+            "[class*=\"tp-backdrop\" i]"
+          ],
+          "css": "body { overflow: auto !important; position: static !important; }"
+        },
+        {
+          "type": "unhide",
+          "selectors": ["article", "main", "[class*=\"article-body\" i]", "[class*=\"content-body\" i]"],
+          "attrs": ["hidden", "aria-hidden", "inert", "data-locked"]
+        },
+        {
+          "type": "css",
+          "css": "html { --piano-allow-scroll: 1; } body.tp-modal-open { overflow: auto !important; }"
+        }
+      ]
+    }
+  ]
+}

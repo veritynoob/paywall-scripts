@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Paywall Scripts</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header>
+      <div class="brand">
+        <span class="dot" id="dot"></span>
+        <h1>Paywall Scripts</h1>
+        <span class="pill" id="count">0 sites</span>
+        <span class="pill" id="enabled">0 enabled</span>
+        <label class="check">
+          <input type="checkbox" id="debug" checked />
+          debug
+        </label>
+      </div>
+      <div class="meta" id="pageInfo">…</div>
+    </header>
+
+    <!-- ================= view: site list ================= -->
+    <main id="view-list">
+      <div id="staleNotice" class="notice" hidden></div>
+
+      <div class="row buttons">
+        <button id="addSite" class="primary">+ Add site</button>
+        <button id="enableAll">Enable all</button>
+        <button id="disableAll">Disable all</button>
+        <button id="openConfig">Full config (JSON)</button>
+        <button id="reset" class="danger">Reset to examples</button>
+      </div>
+
+      <div id="scriptList" class="site-list"></div>
+
+      <div class="status" id="status">Loading…</div>
+
+      <details class="fold">
+        <summary>Check the page I am on</summary>
+        <div class="fold-body" id="panel-page">
+          <div class="status" id="matchStatus">Checking this tab…</div>
+          <div id="matchList"></div>
+          <div class="row buttons">
+            <button id="rerun" class="primary">Re-run rules now</button>
+            <button id="report">Find paywall elements</button>
+            <button id="openOptions">Reload page</button>
+          </div>
+          <pre id="reportOut" class="report" hidden></pre>
+        </div>
+      </details>
+
+      <details class="fold">
+        <summary>Rule syntax reference</summary>
+        <div class="fold-body" id="panel-help">
+          <p class="lead">
+            A site entry runs when the tab URL matches one of its patterns, then applies its rules in
+            order. Patterns use Chrome match-pattern syntax.
+          </p>
+          <table>
+            <thead>
+              <tr><th>type</th><th>keys</th><th>what it does</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>css</td><td>hide[], css</td><td>inject a <code>&lt;style&gt;</code> at document_start</td></tr>
+              <tr><td>cookie</td><td>cookies[{name,domain}]</td><td>delete cookies so the meter resets (runs in the worker)</td></tr>
+              <tr><td>storage</td><td>local[], session[]</td><td>clear localStorage / sessionStorage keys (exact or prefix)</td></tr>
+              <tr><td>text</td><td>selectors[], phrases[]</td><td>strip leftover paywall wording from text nodes</td></tr>
+              <tr><td>unhide</td><td>selectors[], attrs[]</td><td>remove hidden / aria-hidden / inert from real content</td></tr>
+              <tr><td>untruncate</td><td>selectors[], attrs[]</td><td>drop truncation flags (<code>isAccessibleForFree=false</code>)</td></tr>
+              <tr><td>click</td><td>selectors[], tries, gap</td><td>auto-click “Continue reading” style buttons</td></tr>
+              <tr><td>blockScripts</td><td>patterns[]</td><td>stop matching <code>&lt;script src&gt;</code> from loading</td></tr>
+              <tr><td>nukeSelector</td><td>selectors[]</td><td>hard-remove matching elements as they appear</td></tr>
+              <tr><td>redirect</td><td>toUrl, when[], onlyIfGated</td><td>send the tab elsewhere — the answer to a server-side wall</td></tr>
+            </tbody>
+          </table>
+          <p class="lead warn">
+            Client-side paywalls only. Nothing here can fetch a body the server refused to send — for
+            those, use a <code>redirect</code> rule to an archive copy.
+          </p>
+        </div>
+      </details>
+    </main>
+
+    <!-- ================= view: one site ================= -->
+    <main id="view-detail" hidden>
+      <div class="crumb">
+        <button id="back" class="ghost">‹ All sites</button>
+        <span class="crumb-id" id="detailId"></span>
+        <span class="spacer"></span>
+        <button id="revert" class="ghost">Revert</button>
+        <button id="apply" class="primary">Apply</button>
+      </div>
+
+      <div class="status" id="detailStatus"></div>
+
+      <div class="card">
+        <label class="field">
+          <span class="lbl">Name</span>
+          <input type="text" id="d-name" />
+        </label>
+        <label class="field inline">
+          <input type="checkbox" id="d-enabled" />
+          <span>Enabled</span>
+        </label>
+        <label class="field">
+          <span class="lbl">Run at</span>
+          <select id="d-runAt">
+            <option value="">document_start (default — before first paint)</option>
+            <option value="document_end">document_end</option>
+            <option value="document_idle">document_idle</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <span class="lbl">URL patterns</span>
+          <button id="addPattern" class="mini">+ pattern</button>
+        </div>
+        <div class="hint">Chrome match patterns, e.g. <code>https://*.nytimes.com/*</code></div>
+        <div id="patternList" class="pattern-list"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <span class="lbl">Rules <span class="muted">(applied in order)</span></span>
+          <button id="addRule" class="mini">+ rule</button>
+        </div>
+        <div id="ruleList" class="rule-list"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <span class="lbl">Advanced: this site as JSON</span>
+          <button id="loadJson" class="mini">Load</button>
+          <button id="saveJson" class="mini">Apply JSON</button>
+        </div>
+        <textarea id="d-json" spellcheck="false" wrap="off" class="tall"></textarea>
+        <div class="status" id="jsonStatus"></div>      </div>
+
+      <div class="row buttons">
+        <button id="deleteSite" class="danger">Delete this site</button>
+      </div>
+    </main>
+
+    <!-- ================= view: whole config ================= -->
+    <main id="view-config" hidden>
+      <div class="crumb">
+        <button id="back2" class="ghost">‹ All sites</button>
+        <span class="spacer"></span>
+        <button id="format">Format</button>
+        <button id="export">Copy</button>
+        <button id="saveConfig" class="primary">Save &amp; apply</button>
+      </div>
+      <p class="lead">
+        Everything, exactly as stored. Rarely needed — the per-site editor covers normal use.
+      </p>
+      <textarea id="editor" spellcheck="false" wrap="off" class="tall"></textarea>
+      <div class="status" id="configStatus">Loaded.</div>
+    </main>
+
+    <script src="../engine.js"></script>
+    <script src="../rules-schema.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>

@@ -1,0 +1,35 @@
+{
+  "manifest_version": 3,
+  "name": "Paywall Scripts (mini userscript manager)",
+  "version": "1.0.0",
+  "description": "A tiny Tampermonkey-style script runner. Rules are plain JSON: match a URL, then run cookie/CSS/DOM/storage/script-block actions.",
+  "minimum_chrome_version": "111",
+  "permissions": [
+    "storage",
+    "scripting",
+    "cookies",
+    "tabs"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Paywall Scripts",
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
