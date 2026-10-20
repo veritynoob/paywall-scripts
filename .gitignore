@@ -13,6 +13,11 @@ node_modules/
 .dsh-tmp/
 *.log
 
+# saved page snapshots (handy for writing rules, never worth committing)
+*.mhtml
+*.mht
+*.webarchive
+
 # test profiles and build output
 paywall-e2e-*/
 dist/

@@ -97,6 +97,7 @@
 | `untruncate` | `selectors[]`, `attrs[]` | 去截断标记（`isAccessibleForFree=false` 等） |
 | `click` | `selectors[]`, `tries`, `gap` | 轮询点击按钮，每个只点一次 |
 | `blockScripts` | `patterns[]` | 拦截匹配的 `<script src>`（挂钩 setter 和 setAttribute） |
+| `deScrim` | `minCoverage` | 找出盖在正文上的**全页渐变遮罩**并按形状清除（类名是哈希的，见下） |
 | `nukeSelector` | `selectors[]` | 硬删除节点 |
 | `redirect` | `toUrl`, `when[]`, `onlyIfGated` | 把标签页送到别处；`{href}`=原始 URL，`{url}`=编码后 |
 | `main` | `js` | 页面主世界跑原文 JS（受页面 CSP 限制，常被禁） |
@@ -162,8 +163,30 @@ NYT 登不上、自动退出、卡在"需要登录"的页面，是三个独立�
 
 ---
 
-## 各站点机制与现状
+## NYT 的墙是两层：一层遮罩 + 一层服务端截断
 
+把真实页面另存成 MHTML 后逐层拆开（`deScrim` 就是这么验证出来的），一篇被计费墙挡住的
+NYT 文章长这样：
+
+| 层 | 事实 | 能不能修 |
+|---|---|---|
+| **视觉层** | `[data-testid="vi-gateway-container"]` 里一个**空 div**，`position:absolute`，`background-image: linear-gradient(rgba(18,18,18,0), rgba(18,18,18,.65) 402px)`，1472×917 | **能**。类名是 `css-hgm7bf` 这种每次发版都变的哈希，所以规则不写类名：CSS 打 `> div:empty`，`deScrim` 再按"绝对定位 + 带渐变 + 覆盖 ≥25% 视口 + 不包着正文"的形状兜底 |
+| **正文层** | `section[name="articleBody"]` 里**只有 3 段**，末尾跟着 `<p role="note"><a>Subscribe to The Times</a> to read as many articles as you like.</p>` | **不能**。服务端只发了 3 段，剩下的文字根本不在页面里；CSS/DOM 规则变不出来 |
+
+所以自带规则对 NYT 的目标是：**去掉遮罩、清掉残留订阅文案**，让页面看起来正常；正文缺口
+只能靠 `redirect` 到存档镜像（同 Bloomberg 的做法，默认关闭，需自己开）。
+
+> 自己取证据：`Check the page I am on → Find paywall elements` 的 `verdict` 在这两种情况下
+> 分别是 `visually-truncated` 和 `server-truncated`——完全不同的墙，别用同一种办法打。
+
+`deScrim` 的边界（免得误伤）：只碰 `position: absolute/fixed`、带 `gradient` 背景、
+覆盖视口 ≥25%、且**不包含正文**的元素；`<figure>` / `<picture>` 里的渐变直接跳过（那通常是
+图片说明的可读性蒙版，不是墙）。这些条件都是用保存下来的真实页面 + 一个合成的
+"正文图注渐变"做对照验证过的。
+
+---
+
+## 各站点机制与现状
 | 站点 | 机制 | 状态 |
 |---|---|---|
 | The New York Times | 软墙（浮层 + 计次），未登录时服务端也会截断 | 规则默认启用 |

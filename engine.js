@@ -418,6 +418,87 @@ const ACTION_HANDLERS = {
     }, Math.max(50, gap));
   },
 
+  /**
+   * Remove the "dimming" layer a paywall paints *over* an article.
+   *
+   * The New York Times is the canonical case: it does not hide the body, it lays
+   * a full-page gradient (transparent -> rgba(18,18,18,.65)) on top of it, so the
+   * text is there and readable, just washed out. Verified against a saved copy of
+   * a live page: the layer was `div.css-hgm7bf{position:absolute}` with
+   * `background-image: linear-gradient(rgba(18, 18, 18, 0), rgba(18, 18, 18, .65) 402px)`,
+   * 1472x917 inside `[data-testid="vi-gateway-container"]`.
+   *
+   * That class name is generated and rotates on every deploy, so naming it is a
+   * losing game. This looks for the *shape* of a scrim instead: positioned above
+   * the page, carrying a gradient, big enough to matter, and not wrapping the
+   * article. The hero-image gradients news sites use for caption legibility are
+   * inside <figure>/<picture> and cover far less of the viewport, so they survive.
+   */
+  deScrim(params) {
+    const p = params || {};
+    const state = (p.state = p.state || {});
+    const minCoverage = Number.isFinite(p.minCoverage) ? p.minCoverage : 0.25;
+    const now = Date.now();
+    // pcReapply() calls this on every mutation batch; a full body scan per batch
+    // is wasted work on a page that already has nothing left to clean.
+    if (state._scrimAt && now - state._scrimAt < 700) return 0;
+    state._scrimAt = now;
+
+    const seen = state._scrimSeen || (state._scrimSeen = new WeakSet());
+    const article = safeQueryAll(ARTICLE_BODY_SELECTOR)[0] || null;
+    const vw = window.innerWidth || 1;
+    const vh = window.innerHeight || 1;
+    let removed = 0;
+
+    safeQueryAll('body *').forEach((el) => {
+      if (seen.has(el)) return;
+      let cs;
+      try {
+        cs = getComputedStyle(el);
+      } catch (e) {
+        return;
+      }
+      if (cs.position !== 'fixed' && cs.position !== 'absolute') return;
+      if (parseFloat(cs.opacity) === 0) return;
+      // Never touch the article or anything that contains it.
+      if (article && (el === article || el.contains(article))) return;
+      // Gradients that belong to a picture are part of the artwork, not a wall.
+      try {
+        if (el.closest('figure, picture')) return;
+      } catch (e) {
+        /* ignore */
+      }
+
+      const ownGradient = /gradient/i.test(cs.backgroundImage || '');
+      const pseudoGradient = ['::before', '::after'].some((pe) => {
+        try {
+          const ps2 = getComputedStyle(el, pe);
+          return ps2.content !== 'none' && /gradient/i.test(ps2.backgroundImage || '');
+        } catch (e) {
+          return false;
+        }
+      });
+      if (!ownGradient && !pseudoGradient) return;
+
+      const rect = el.getBoundingClientRect();
+      if (rect.width * rect.height < vw * vh * minCoverage) return;
+
+      seen.add(el);
+      removed++;
+      if (ownGradient) el.style.setProperty('background-image', 'none', 'important');
+      if (pseudoGradient) {
+        el.setAttribute('data-paywall-scrim', '1');
+        ensureScrimCss();
+      }
+      // A scrim is decoration; it must never keep swallowing clicks either.
+      el.style.setProperty('pointer-events', 'none', 'important');
+      if (p.debug) console.debug('[paywall-scripts] neutralised gradient scrim:', String(el.className).slice(0, 60));
+    });
+
+    state.scrims = (state.scrims || 0) + removed;
+    return removed;
+  },
+
   /* Stop matching <script src> from ever reaching the network.              */
   blockScripts(params) {
     if (params.state && params.state.blockPatched) return;
@@ -592,6 +673,21 @@ const ACTION_HANDLERS = {
     go();
   }
 };
+
+/**
+ * One shared <style> for pseudo-element scrims: a ::before / ::after background
+ * cannot be cleared with inline styles, so tag the host and override it by
+ * attribute. Injected once per document.
+ */
+function ensureScrimCss() {
+  if (typeof document === 'undefined' || !document.createElement) return;
+  if (document.getElementById('paywall-scripts-scrim-css')) return;
+  const style = document.createElement('style');
+  style.id = 'paywall-scripts-scrim-css';
+  style.textContent =
+    '[data-paywall-scrim]::before, [data-paywall-scrim]::after { background-image: none !important; }';
+  (document.head || document.documentElement).appendChild(style);
+}
 
 function applyStorageClear(params, store, kind) {
   const wanted = (params && params[kind]) || [];

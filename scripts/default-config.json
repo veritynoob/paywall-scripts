@@ -1,5 +1,5 @@
 {
-  "version": 4,
+  "version": 5,
   "debug": true,
   "scripts": [
     {
@@ -51,7 +51,7 @@
             "[class*=\"AccessibilitySkipLink\"] + div[aria-hidden=\"true\"]",
             "[data-testid=\"notification-banner\"]"
           ],
-          "css": "html.paywall-scripts-on body { overflow: auto !important; position: static !important; height: auto !important; }\n#site-content { filter: none !important; -webkit-filter: none !important; }\narticle, section[name=\"articleBody\"], [data-testid=\"articleBody\"] { filter: none !important; -webkit-filter: none !important; max-height: none !important; }\n[class*=\"Gradient\"], [class*=\"gradient\"], [class*=\"Fade\"], [class*=\"fade\"] { background-image: none !important; }\n[aria-hidden=\"true\"]:not(script):not(style):not([data-paywall-keep]) { pointer-events: auto !important; }\n/* Never let the sign-in UI out of sight: a modal that contains a password\n   field is the login box, not the regwall. Undo any hiding that caught it\n   (including a user's own [role=\"dialog\"] rule). display is only forced on the\n   wrapper -- overriding a form's own display would wreck the login layout. */\n[role=\"dialog\"]:has(input[type=\"password\"]), [aria-modal=\"true\"]:has(input[type=\"password\"]), dialog:has(input[type=\"password\"]) { display: block !important; visibility: visible !important; opacity: 1 !important; pointer-events: auto !important; }\nform[action*=\"login\" i], form[action*=\"signin\" i], input[type=\"password\"] { visibility: visible !important; opacity: 1 !important; pointer-events: auto !important; }"
+          "css": "html.paywall-scripts-on body { overflow: auto !important; position: static !important; height: auto !important; }\n#site-content { filter: none !important; -webkit-filter: none !important; }\narticle, section[name=\"articleBody\"], [data-testid=\"articleBody\"] { filter: none !important; -webkit-filter: none !important; max-height: none !important; }\n[class*=\"Gradient\"], [class*=\"gradient\"], [class*=\"Fade\"], [class*=\"fade\"] { background-image: none !important; }\n[aria-hidden=\"true\"]:not(script):not(style):not([data-paywall-keep]) { pointer-events: auto !important; }\n/* Never let the sign-in UI out of sight: a modal that contains a password\n   field is the login box, not the regwall. Undo any hiding that caught it\n   (including a user's own [role=\"dialog\"] rule). display is only forced on the\n   wrapper -- overriding a form's own display would wreck the login layout. */\n[role=\"dialog\"]:has(input[type=\"password\"]), [aria-modal=\"true\"]:has(input[type=\"password\"]), dialog:has(input[type=\"password\"]) { display: block !important; visibility: visible !important; opacity: 1 !important; pointer-events: auto !important; }\nform[action*=\"login\" i], form[action*=\"signin\" i], input[type=\"password\"] { visibility: visible !important; opacity: 1 !important; pointer-events: auto !important; }\n/* NYT does not hide the body, it dims it: an empty div inside\n   [data-testid=\"vi-gateway-container\"] carries a full-page gradient\n   (transparent -> rgba(18,18,18,.65)). Its class is hashed per deploy, so kill\n   the gradient on any empty decoration div in that container instead. */\n[data-testid=\"vi-gateway-container\"] > div:empty { background-image: none !important; }\n[data-testid=\"vi-gateway-container\"] [role=\"dialog\"], [data-testid=\"vi-gateway-container\"] [aria-modal=\"true\"] { display: none !important; }"
         },
         {
           "type": "untruncate",
@@ -91,6 +91,9 @@
           ]
         },
         {
+          "type": "deScrim"
+        },
+        {
           "type": "text",
           "selectors": [
             "#gateway-content",
@@ -98,9 +101,10 @@
             "[class*=\"Paywall\"]",
             "[class*=\"Regwall\"]",
             "[class*=\"InlineMessage\"]",
-            "[data-testid=\"inline-message\"]"
+            "[data-testid=\"inline-message\"]",
+            "section[name=\"articleBody\"]"
           ],
-          "phrases": ["subscribe to continue reading", "you've reached your limit"]
+          "phrases": ["subscribe to continue reading", "you've reached your limit", "as many articles as you like"]
         },
         {
           "type": "nukeSelector",
@@ -182,6 +186,9 @@
         {
           "type": "blockScripts",
           "patterns": ["*regwall*", "*paywall*", "*meter*", "*barrier*"]
+        },
+        {
+          "type": "deScrim"
         },
         {
           "type": "nukeSelector",
@@ -320,7 +327,10 @@
             "[class*=\"paywall\" i]",
             "[class*=\"Paywall\" i]"
           ],
-          "css": "html, body { overflow: visible !important; overflow-y: auto !important; height: auto !important; max-height: none !important; }\nhtml { clip-path: none !important; }\n\n/* WaPo marks the gated block .meteredContent and repaints its text pure white,\n   so the article is present but invisible. Restore colour, display and size. */\n.meteredContent, .meteredContent .teaser-content, .meteredContent .article-body,\nmain.grid-main-standard, article.grid-article, .grid-body {\n  display: block !important;\n  max-height: none !important;\n  height: auto !important;\n  overflow: visible !important;\n  -webkit-mask-image: none !important;\n  mask-image: none !important;\n  filter: none !important;\n  -webkit-filter: none !important;\n  opacity: 1 !important;\n}\n.meteredContent { color: inherit !important; }\n.meteredContent p, .meteredContent div, .meteredContent span, .meteredContent li,\n.meteredContent h2, .meteredContent h3, .article-body p, .article-body div {\n  color: inherit !important;\n  opacity: 1 !important;\n}\n/* the reader-repaint turns body text pure white; give it real contrast instead */\n.wpds-c-PJLV.article-body, .article-body {\n  --wpds-colors-foreground: #111 !important;\n}\n[role=\"dialog\"], [aria-modal=\"true\"] { display: none !important; }\n\n/* The paywall WRAPPER can contain the article, so it must never be display:none.\n   Make it invisible and non-interactive instead, which leaves content intact. */\n[id^=\"paywall-\"] {\n  opacity: 0 !important;\n  pointer-events: none !important;\n  background: transparent !important;\n  box-shadow: none !important;\n}\n[id^=\"paywall-\"] [role=\"dialog\"], [id^=\"paywall-\"] [aria-modal=\"true\"] { display: none !important; }"
+          "css": "html, body { overflow: visible !important; overflow-y: auto !important; height: auto !important; max-height: none !important; }\nhtml { clip-path: none !important; }\n\n/* WaPo marks the gated block .meteredContent and repaints its text pure white,\n   so the article is present but invisible. Restore colour, display and size. */\n.meteredContent, .meteredContent .teaser-content, .meteredContent .article-body,\nmain.grid-main-standard, article.grid-article, .grid-body {\n  display: block !important;\n  max-height: none !important;\n  height: auto !important;\n  overflow: visible !important;\n  -webkit-mask-image: none !important;\n  mask-image: none !important;\n  filter: none !important;\n  -webkit-filter: none !important;\n  opacity: 1 !important;\n}\n.meteredContent { color: inherit !important; }\n.meteredContent p, .meteredContent div, .meteredContent span, .meteredContent li,\n.meteredContent h2, .meteredContent h3, .article-body p, .article-body div {\n  color: inherit !important;\n  opacity: 1 !important;\n}\n/* the reader-repaint turns body text pure white; give it real contrast instead */\n.wpds-c-PJLV.article-body, .article-body {\n  --wpds-colors-foreground: #111 !important;\n}\n[role=\"dialog\"]:not(:has(input[type=\"password\"])), [aria-modal=\"true\"]:not(:has(input[type=\"password\"])) { display: none !important; }\n\n/* The paywall WRAPPER can contain the article, so it must never be display:none.\n   Make it invisible and non-interactive instead, which leaves content intact. */\n[id^=\"paywall-\"] {\n  opacity: 0 !important;\n  pointer-events: none !important;\n  background: transparent !important;\n  box-shadow: none !important;\n}\n[id^=\"paywall-\"] [role=\"dialog\"], [id^=\"paywall-\"] [aria-modal=\"true\"] { display: none !important; }"
+        },
+        {
+          "type": "deScrim"
         },
         {
           "type": "untruncate",

@@ -87,6 +87,14 @@ const RULE_SCHEMA = {
     help: 'Stops matching <script src> from ever loading. Globs, e.g. *meter*.',
     fields: [{ key: 'patterns', kind: 'lines', label: 'URL patterns', placeholder: '*meter*, *paywall*' }]
   },
+  deScrim: {
+    label: 'Remove dimming overlays',
+    help:
+      'Finds full-page gradient layers painted over the article (hashed class names, so they are matched by shape) and strips their gradient. Nothing to configure.',
+    fields: [
+      { key: 'minCoverage', kind: 'number', label: 'Minimum coverage of the viewport (0-1)', advanced: true, placeholder: '0.25' }
+    ]
+  },
   redirect: {
     label: 'Redirect elsewhere',
     help:
@@ -192,6 +200,7 @@ function defaultRule(type) {
     text: { selectors: [] },
     click: { selectors: [] },
     blockScripts: { patterns: [] },
+    deScrim: {},
     redirect: { toUrl: '', when: [] },
     main: { js: '' }
   };
