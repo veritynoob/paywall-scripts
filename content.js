@@ -42,6 +42,16 @@ function pcUnlockScroll() {
         /* ignore */
       }
     });
+    // removeProperty is not enough: the lock is usually a *class*
+    // (`.no-scroll { overflow: hidden }`) or is re-applied by the page's own
+    // framework a frame later. Only an inline !important beats both, because
+    // inline !important outranks every author stylesheet rule.
+    try {
+      el.style.setProperty('overflow-y', 'auto', 'important');
+      el.style.setProperty('height', 'auto', 'important');
+    } catch (e) {
+      /* ignore */
+    }
     try {
       el.classList.remove('fade-in', 'nytd-modal-open', 'modal-open');
       const cls = el.getAttribute && el.getAttribute('class');
@@ -52,6 +62,51 @@ function pcUnlockScroll() {
       /* ignore */
     }
   });
+  pcReleaseScrollTrap();
+}
+
+/**
+ * Free the article from a fixed "shell" that swallows the scrollbar.
+ *
+ * Some gates don't hide the body or lock <html>: they move the whole article
+ * into a `position: fixed; overflow: hidden; height: 100vh` wrapper, so the
+ * document has nothing tall left to scroll and no scrollbar can exist. NYT does
+ * exactly this — main#site-content sits inside
+ * [data-testid="vi-gateway-container"], which measured position:fixed,
+ * overflow:hidden, height 1030 while its content was 2817px tall.
+ *
+ * The tell is a clipping ancestor whose content is taller than itself. Only
+ * those are released, so normal sticky/absolute layout is untouched.
+ */
+function pcReleaseScrollTrap() {
+  let el =
+    document.querySelector('article, main, [data-testid="articleBody"], [name="articleBody"]') || document.body;
+  let depth = 0;
+  while (el && el !== document.body && el.parentElement && depth < 8) {
+    const parent = el.parentElement;
+    let cs = null;
+    try {
+      cs = getComputedStyle(parent);
+    } catch (e) {
+      return;
+    }
+    const clipping =
+      (cs.position === 'fixed' || cs.position === 'absolute') &&
+      (cs.overflowY === 'hidden' || cs.overflowY === 'clip' || cs.height !== 'auto');
+    if (clipping && parent.scrollHeight > parent.clientHeight + 4) {
+      try {
+        parent.style.setProperty('position', 'static', 'important');
+        parent.style.setProperty('overflow', 'visible', 'important');
+        parent.style.setProperty('height', 'auto', 'important');
+        parent.style.setProperty('max-height', 'none', 'important');
+        parent.setAttribute('data-paywall-scroll-released', '1');
+      } catch (e) {
+        /* ignore */
+      }
+    }
+    el = parent;
+    depth++;
+  }
 }
 
 function pcReapply() {
@@ -85,7 +140,11 @@ function pcReapply() {
       }
     });
   });
-  pcUnlockScroll();
+  // Only fight the page's own scroll lock where one of our rulesets is active.
+  // Forcing html/body scrolling on every site would break pages that legitimately
+  // lock it (an open lightbox, a full-screen menu) and that we have no business
+  // touching.
+  if (pcMatched.length) pcUnlockScroll();
 }
 
 function pcObserve() {
@@ -156,6 +215,13 @@ function pcRequestMainWorld() {
 /* -------------------------------------------------------------------------- */
 
 async function pcBoot() {
+  // The shipped rulesets key some CSS off `html.paywall-scripts-on`; nothing was
+  // ever adding it, so those declarations silently never applied.
+  try {
+    document.documentElement.classList.add('paywall-scripts-on');
+  } catch (e) {
+    /* ignore */
+  }
   try {
     const data = await chrome.storage.local.get(PC_STORAGE_KEY);
     const cfg = data && data[PC_STORAGE_KEY];
@@ -204,6 +270,20 @@ async function pcBoot() {
     } catch (e) {
       /* ignore */
     }
+    // The scroll lock is usually re-applied by the page's own framework shortly
+    // after load (and it may be a class change, which the MutationObserver below
+    // does not see). Poll for a few seconds, then stop -- no permanent timer.
+    let unlockTries = 0;
+    const unlockTimer = setInterval(() => {
+      if (pcMatched.length) {
+        try {
+          pcUnlockScroll();
+        } catch (e) {
+          /* ignore */
+        }
+      }
+      if (++unlockTries >= 12) clearInterval(unlockTimer);
+    }, 500);
   };
 
   if (document.readyState === 'loading') {

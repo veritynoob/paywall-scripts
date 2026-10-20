@@ -102,7 +102,7 @@
 | `redirect` | `toUrl`, `when[]`, `onlyIfGated` | 把标签页送到别处；`{href}`=原始 URL，`{url}`=编码后 |
 | `main` | `js` | 页面主世界跑原文 JS（受页面 CSP 限制，常被禁） |
 
-### 四条踩坑换来的设计
+### 五条踩坑换来的设计
 
 1. **`chrome.cookies` 只给 service worker，内容脚本里是 `undefined`。**
    cookie 规则因此由内容脚本**委托给 worker** 执行。早期版本直接在内容脚本里调，
@@ -115,6 +115,14 @@
    每次重扫还会再删一次，页面彻底救不回来。
 4. **破坏性动作也拒绝删除"登录面"，cookie 规则更拒绝删登录态 Cookie。**
    （v4 新增，起因是 NYT 登录被踢，见下节。）
+5. **有的墙不改正文，是把正文关进 `position:fixed` 的壳里——滚动条直接没了。**
+   NYT 把 `main#site-content` 放进 `[data-testid="vi-gateway-container"]`，付费墙状态给这个壳
+   `position:fixed; overflow:hidden; height:100vh`。于是 `html` 的 `scrollHeight` 等于视口高度，
+   **文档没有任何可滚动内容**，遮罩去掉了照样读不下去（实测：`html` 1030 == 1030，`main` 内容 2817）。
+   两个细节值得记：锁通常是 `.no-scroll{overflow:hidden}` 这种 **class**，
+   `style.removeProperty()` 完全无效；而且页面框架会在加载后**再加回来**。
+   所以 `pcUnlockScroll()` 用行内 `!important`（行内 `!important` 压得过任何样式表规则），
+   并在加载后 6 秒内重试；`pcReleaseScrollTrap()` 负责把裁切壳放回文档流。
 
 ### 登录态是红线：为什么不能删 `NYT-S`
 
@@ -163,7 +171,7 @@ NYT 登不上、自动退出、卡在"需要登录"的页面，是三个独立�
 
 ---
 
-## NYT 的墙是两层：一层遮罩 + 一层服务端截断
+## NYT 的墙是三层：遮罩 + 滚动锁 + 服务端截断
 
 把真实页面另存成 MHTML 后逐层拆开（`deScrim` 就是这么验证出来的），一篇被计费墙挡住的
 NYT 文章长这样：
@@ -171,7 +179,10 @@ NYT 文章长这样：
 | 层 | 事实 | 能不能修 |
 |---|---|---|
 | **视觉层** | `[data-testid="vi-gateway-container"]` 里一个**空 div**，`position:absolute`，`background-image: linear-gradient(rgba(18,18,18,0), rgba(18,18,18,.65) 402px)`，1472×917 | **能**。类名是 `css-hgm7bf` 这种每次发版都变的哈希，所以规则不写类名：CSS 打 `> div:empty`，`deScrim` 再按"绝对定位 + 带渐变 + 覆盖 ≥25% 视口 + 不包着正文"的形状兜底 |
+| **滚动层** | 同一个容器被切成 `position:fixed; overflow:hidden; height:100vh`，而 `main#site-content` 就在它**里面**：`html.scrollHeight` 卡在 1030（=视口高），可 `main` 的内容有 2817 | **能**。`pcReleaseScrollTrap()` 找"裁切祖先、且内容比它高"的壳，放回文档流；`pcUnlockScroll()` 再用行内 `!important` 钉住滚动 |
 | **正文层** | `section[name="articleBody"]` 里**只有 3 段**，末尾跟着 `<p role="note"><a>Subscribe to The Times</a> to read as many articles as you like.</p>` | **不能**。服务端只发了 3 段，剩下的文字根本不在页面里；CSS/DOM 规则变不出来 |
+
+> 注意滚动锁和遮罩**是同一个容器**：把遮罩去掉不会恢复滚动，`html.scrollHeight` 仍然是视口高度。
 
 所以自带规则对 NYT 的目标是：**去掉遮罩、清掉残留订阅文案**，让页面看起来正常；正文缺口
 只能靠 `redirect` 到存档镜像（同 Bloomberg 的做法，默认关闭，需自己开）。
