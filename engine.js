@@ -195,6 +195,36 @@ const ARTICLE_BODY_SELECTOR =
   '[data-testid="articleBody"], [name="articleBody"], article, main, ' +
   '[class*="article-body" i], [class*="articleBody" i], [itemprop="articleBody"]';
 
+/**
+ * Login / auth surfaces, which destructive actions must leave alone.
+ *
+ * A paywall overlay and a login modal look identical to a `[role="dialog"]`
+ * selector, so the obvious rule for the overlay also hides the thing the user
+ * needs to sign in — and the page then sits on a gate with no way forward. These
+ * selectors describe "a real sign-in form", which no paywall needs: a password
+ * field, or a form posting to a login/auth endpoint.
+ */
+const AUTH_SURFACE_SELECTOR =
+  'form[action*="login" i], form[action*="signin" i], form[action*="sign-in" i], ' +
+  'form[action*="auth" i], input[type="password"], ' +
+  '[data-testid*="login-form" i], [data-testid*="auth-form" i]';
+
+function isAuthSurface(el) {
+  if (!el || typeof el.closest !== 'function') return false;
+  try {
+    if (el.closest(AUTH_SURFACE_SELECTOR)) return true;
+  } catch (e) {
+    /* selector support */
+  }
+  // The element may *contain* the form (a modal wrapping the login box).
+  try {
+    if (el.querySelector && el.querySelector('input[type="password"]')) return true;
+  } catch (e) {
+    /* ignore */
+  }
+  return false;
+}
+
 function isProtectedContent(el, selectorText) {
   if (!el || typeof el.closest !== 'function') return true;
   const name = (el.tagName || '').toLowerCase();
@@ -294,6 +324,11 @@ const ACTION_HANDLERS = {
         // Remove the whole containing block, not just the bare text: paywalls
         // usually render "Subscribe to continue reading" inside its own wrapper.
         const target = el && el.parentElement ? el : n;
+        if (el && isAuthSurface(target)) {
+          // Sign-in UI ("already a subscriber? log in"): leave it for the user.
+          if (params.debug) console.debug('[paywall-scripts] text refused (auth surface):', target.tagName);
+          return;
+        }
         if (el && isProtectedContent(target)) {
           // Paywall wording inside the article itself: drop the text, not the node.
           n.nodeValue = '';
@@ -457,6 +492,10 @@ const ACTION_HANDLERS = {
     let removed = 0;
     (params.selectors || []).forEach((sel) => {
       safeQueryAll(sel).forEach((el) => {
+        if (isAuthSurface(el)) {
+          if (params.debug) console.debug('[paywall-scripts] nukeSelector refused (auth surface):', sel);
+          return;
+        }
         if (isProtectedContent(el, sel)) {
           if (params.debug) console.debug('[paywall-scripts] nukeSelector refused (protected):', sel);
           return;

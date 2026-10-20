@@ -109,8 +109,13 @@ function renderStaleNotice(cfg) {
   const missing = bundled.map((s) => s.id).filter((id) => !have.has(id));
   const storedVersion = Number((cfg && cfg.version) || 0);
   const bundledVersion = Number((bundledConfig || {}).version || 0);
+  const newer = bundledVersion > storedVersion;
 
-  if (!missing.length) {
+  // A version bump means the shipped RULES changed, not just the site list — and
+  // some of those changes are the difference between working login and being
+  // logged out (see the auth-cookie guard). Silently keeping the old ruleset is
+  // how a fixed bug keeps happening on a machine that already had the config.
+  if (!missing.length && !newer) {
     el.hidden = true;
     el.textContent = '';
     return;
@@ -121,23 +126,29 @@ function renderStaleNotice(cfg) {
 
   const head = document.createElement('div');
   const b = document.createElement('b');
-  b.textContent = missing.length + ' shipped site(s) missing from your config';
+  b.textContent = missing.length
+    ? missing.length + ' shipped site(s) missing from your config'
+    : 'Your saved rules are older than the bundled ones';
   head.appendChild(b);
-  if (bundledVersion > storedVersion) {
+  if (newer) {
     head.appendChild(document.createTextNode('  (yours: v' + storedVersion + ', bundled: v' + bundledVersion + ')'));
   }
   el.appendChild(head);
 
-  const ids = document.createElement('div');
-  ids.className = 'mono tiny';
-  ids.textContent = missing.join(', ');
-  el.appendChild(ids);
+  if (missing.length) {
+    const ids = document.createElement('div');
+    ids.className = 'mono tiny';
+    ids.textContent = missing.join(', ');
+    el.appendChild(ids);
+  }
 
   const why = document.createElement('div');
   why.style.marginTop = '4px';
-  why.textContent =
-    'Your saved config outlives reloading the extension, so new defaults never reach you. ' +
-    'Loading the bundled examples replaces everything below.';
+  why.textContent = missing.length
+    ? 'Your saved config outlives reloading the extension, so new defaults never reach you. ' +
+      'Loading the bundled examples replaces everything below.'
+    : 'Newer defaults fix rules that were breaking site logins. Loading the bundled examples ' +
+      'replaces everything below — Copy JSON first if you edited your sites.';
   el.appendChild(why);
 
   const btn = document.createElement('button');

@@ -115,12 +115,17 @@ function pcObserve() {
 
 function pcApplyCookies(params) {
   const rules = (params && params.cookies) || [];
-  const names = rules.filter((r) => r && r.name).map((r) => r.name);
-  if (!names.length) return Promise.resolve({ ok: true, skipped: true });
+  // Send name AND domain: the worker's chrome.cookies.getAll({name}) is not
+  // domain-scoped, so dropping the domain here would delete same-named cookies
+  // belonging to unrelated sites.
+  const cookies = rules
+    .filter((r) => r && r.name)
+    .map((r) => (r.domain ? { name: r.name, domain: r.domain } : { name: r.name }));
+  if (!cookies.length) return Promise.resolve({ ok: true, skipped: true });
 
   try {
     return Promise.resolve(
-      chrome.runtime.sendMessage({ type: 'PC_APPLY_COOKIES', names, all: !!params.all })
+      chrome.runtime.sendMessage({ type: 'PC_APPLY_COOKIES', cookies, all: !!params.all, debug: params.debug !== false })
     ).catch((e) => {
       console.warn('[paywall-scripts] cookie delegation failed:', e && e.message);
       return { ok: false, error: String(e && e.message) };

@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "debug": true,
   "scripts": [
     {
@@ -8,18 +8,14 @@
       "enabled": true,
       "runAt": "document_start",
       "matches": [
-        "https://*.nytimes.com/*",
+        "https://www.nytimes.com/*",
         "https://nytimes.com/*"
       ],
       "rules": [
         {
           "type": "cookie",
           "cookies": [
-            { "name": "NYT-S", "domain": ".nytimes.com" },
-            { "name": "nyt-a", "domain": ".nytimes.com" },
-            { "name": "nyt-gdpr", "domain": ".nytimes.com" },
-            { "name": "nyt-purr", "domain": ".nytimes.com" },
-            { "name": "datadome", "domain": ".nytimes.com" }
+            { "name": "nyt-a", "domain": ".nytimes.com" }
           ]
         },
         {
@@ -27,19 +23,11 @@
           "local": [
             "articleCount",
             "meter",
-            "nytd_",
-            "nyt_",
             "gateway",
-            "gate-",
-            "regi",
-            "paywall",
-            "asset-sw",
-            "-meter",
-            "-regi",
-            "-paywall",
-            "-gate"
+            "regwall",
+            "paywall"
           ],
-          "session": ["articleCount", "meter", "gateway", "regi", "paywall"]
+          "session": ["articleCount", "meter", "gateway", "regwall", "paywall"]
         },
         {
           "type": "css",
@@ -56,10 +44,6 @@
             "[class*=\"Metered\"]:not(article):not(main)",
             "[data-testid=\"expanded-dock\"]",
             "#gateway-content",
-            "#app > div[role=\"dialog\"]",
-            "[role=\"dialog\"][aria-modal=\"true\"]",
-            "div[class*=\"Overlay\"][class*=\"modal\"]",
-            "div#overlay",
             "[class*=\"LyAIy\"]",
             "[class*=\"TYy3l\"]",
             "[class*=\"yQh3H\"]",
@@ -67,7 +51,7 @@
             "[class*=\"AccessibilitySkipLink\"] + div[aria-hidden=\"true\"]",
             "[data-testid=\"notification-banner\"]"
           ],
-          "css": "html.paywall-scripts-on body { overflow: auto !important; position: static !important; height: auto !important; }\n#site-content { filter: none !important; -webkit-filter: none !important; }\narticle, section[name=\"articleBody\"], [data-testid=\"articleBody\"] { filter: none !important; -webkit-filter: none !important; max-height: none !important; }\n[class*=\"Gradient\"], [class*=\"gradient\"], [class*=\"Fade\"], [class*=\"fade\"] { background-image: none !important; }\n[aria-hidden=\"true\"]:not(script):not(style):not([data-paywall-keep]) { pointer-events: auto !important; }"
+          "css": "html.paywall-scripts-on body { overflow: auto !important; position: static !important; height: auto !important; }\n#site-content { filter: none !important; -webkit-filter: none !important; }\narticle, section[name=\"articleBody\"], [data-testid=\"articleBody\"] { filter: none !important; -webkit-filter: none !important; max-height: none !important; }\n[class*=\"Gradient\"], [class*=\"gradient\"], [class*=\"Fade\"], [class*=\"fade\"] { background-image: none !important; }\n[aria-hidden=\"true\"]:not(script):not(style):not([data-paywall-keep]) { pointer-events: auto !important; }\n/* Never let the sign-in UI out of sight: a modal that contains a password\n   field is the login box, not the regwall. Undo any hiding that caught it\n   (including a user's own [role=\"dialog\"] rule). display is only forced on the\n   wrapper -- overriding a form's own display would wreck the login layout. */\n[role=\"dialog\"]:has(input[type=\"password\"]), [aria-modal=\"true\"]:has(input[type=\"password\"]), dialog:has(input[type=\"password\"]) { display: block !important; visibility: visible !important; opacity: 1 !important; pointer-events: auto !important; }\nform[action*=\"login\" i], form[action*=\"signin\" i], input[type=\"password\"] { visibility: visible !important; opacity: 1 !important; pointer-events: auto !important; }"
         },
         {
           "type": "untruncate",
@@ -88,10 +72,7 @@
           "type": "click",
           "selectors": [
             "button[data-testid=\"ContinueReading\"]",
-            "button[data-testid=\"expanded-dock-close\"]",
-            "button[aria-label=\"Close\"]",
-            "button[aria-label=\"Dismiss\"]",
-            "a[data-testid=\"login-link\"]"
+            "button[data-testid=\"expanded-dock-close\"]"
           ],
           "tries": 14,
           "gap": 300
@@ -117,10 +98,9 @@
             "[class*=\"Paywall\"]",
             "[class*=\"Regwall\"]",
             "[class*=\"InlineMessage\"]",
-            "[data-testid=\"inline-message\"]",
-            "[role=\"dialog\"]"
+            "[data-testid=\"inline-message\"]"
           ],
-          "phrases": ["subscribe to continue reading", "you've reached your limit", "already a subscriber?"]
+          "phrases": ["subscribe to continue reading", "you've reached your limit"]
         },
         {
           "type": "nukeSelector",
@@ -152,8 +132,7 @@
             { "name": "econ_meter", "domain": ".economist.com" },
             { "name": "econ_restricted", "domain": ".economist.com" },
             { "name": "ec_article_meter", "domain": ".economist.com" },
-            { "name": "regwall", "domain": ".economist.com" },
-            { "name": "signed_in", "domain": ".economist.com" }
+            { "name": "regwall", "domain": ".economist.com" }
           ]
         },
         {
@@ -230,14 +209,13 @@
           "cookies": [
             { "name": "wsjregion", "domain": ".wsj.com" },
             { "name": "wsjmeta", "domain": ".wsj.com" },
-            { "name": "DJSESSION", "domain": ".wsj.com" },
             { "name": "barrier", "domain": ".wsj.com" },
             { "name": "wsj_meter", "domain": ".wsj.com" }
           ]
         },
         {
           "type": "storage",
-          "local": ["wsj", "WSJ", "meter", "barrier", "gate", "paywall", "articleCount", "dowjones"],
+          "local": ["wsj_meter", "meter", "barrier", "gate", "paywall", "articleCount"],
           "session": ["meter", "barrier", "paywall"]
         },
         {

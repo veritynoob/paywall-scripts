@@ -101,7 +101,7 @@
 | `redirect` | `toUrl`, `when[]`, `onlyIfGated` | 把标签页送到别处；`{href}`=原始 URL，`{url}`=编码后 |
 | `main` | `js` | 页面主世界跑原文 JS（受页面 CSP 限制，常被禁） |
 
-### 三条踩坑换来的设计
+### 四条踩坑换来的设计
 
 1. **`chrome.cookies` 只给 service worker，内容脚本里是 `undefined`。**
    cookie 规则因此由内容脚本**委托给 worker** 执行。早期版本直接在内容脚本里调，
@@ -112,6 +112,35 @@
    付费墙 class 名天天变，`[class*="Paywall"]` 很容易命中文章外层。`nukeSelector` / `text`
    会拒绝删除正文或任何包着正文的祖先节点——删错了会连带正文一起消失，而且 MutationObserver
    每次重扫还会再删一次，页面彻底救不回来。
+4. **破坏性动作也拒绝删除"登录面"，cookie 规则更拒绝删登录态 Cookie。**
+   （v4 新增，起因是 NYT 登录被踢，见下节。）
+
+### 登录态是红线：为什么不能删 `NYT-S`
+
+NYT 登不上、自动退出、卡在"需要登录"的页面，是三个独立错误叠出来的：
+
+| 元凶 | 后果 |
+|---|---|
+| `cookie` 规则删了 `NYT-S`（**已登录会话**）和 `datadome`（**机器人防护令牌**） | 每次导航都被踢回 `anon` 状态；DataDome 反复 challenge，登录 POST 也被当成机器人 |
+| `css` 里藏了 `[role="dialog"][aria-modal="true"]`、`#app > div[role="dialog"]` | 登录弹窗本身就是个 `aria-modal` dialog，被藏了 → 点"登录"没反应 |
+| `text` 规则把 `[role="dialog"]` 里含 "already a subscriber?" 的整块删掉 | 登录弹窗刚出现就被移出 DOM → 界面卡死 |
+
+现在的约定：
+
+- **只删计数器 Cookie**（NYT 是 `nyt-a`：匿名设备 id，删它就把计次清零），
+  **永不删会话 / 认证 / 反机器人 Cookie**。
+- 保护做在**引擎层**，不只靠自带规则：`background.js` 里有一份 `AUTH_COOKIE_RE`，
+  名字命中 `session|sess|sid|auth|token|jwt|login|signin|signed|logged|csrf|xsrf|nyt-s|datadome`
+  就**拒绝删除并 `console.warn`**。因为配置存在 `chrome.storage.local`，比代码活得久——
+  升级扩展后旧配置仍然会生效，护栏必须能兜住旧配置和手改的配置。
+- `nukeSelector` / `text` 不碰"真登录表单"：含 `input[type="password"]`、
+  `form[action*="login"|"signin"|"auth"]` 的元素及其祖先。
+- 站点 `matches` 收窄到内容域（`www.nytimes.com`），**不含 `myaccount.nytimes.com`**
+  这类登录/订阅流程页。
+- `chrome.cookies.getAll({name})` 是**全库**搜索，规则里的 `domain` 必须在 worker 侧过滤，
+  否则同名 Cookie 会跨站被误删（这个 bug 之前就存在，v4 修了）。
+- `storage` 的 `local`/`session` 每一项既匹配**精确 key 也匹配前缀**，所以别写 `nyt_`、
+  `nytd_`、`wsj` 这种大前缀——那是把站点的登录/流程状态一起清了。写具体 key。
 
 ### 主世界与隔离世界
 

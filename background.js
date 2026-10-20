@@ -212,9 +212,46 @@ function cookieUrlCandidates(cookie, tabUrl) {
   return [...new Set(out)];
 }
 
-async function deleteCookies(names, tabUrl, debug) {
+/**
+ * Cookie names that must never be deleted, whatever a rule says.
+ *
+ * This is the difference between "reset the meter" and "log the user out", and
+ * getting it wrong is not recoverable from inside the extension: NYT-S is the
+ * signed-in session (delete it and every navigation bounces you back to the
+ * regwall), and datadome is the bot-protection token (delete it and DataDome
+ * re-challenges every request, which looks exactly like "the login page is
+ * stuck"). DJSESSION and signed_in are the same story on WSJ / The Economist.
+ *
+ * Why a guard in the engine rather than trusting the shipped ruleset: the rules
+ * live in chrome.storage.local, which outlives the extension code, so a config
+ * saved by an older version would otherwise keep nuking the session after an
+ * update. The guard makes every config safe, including hand-edited ones.
+ */
+const AUTH_COOKIE_RE = /(session|sess|sid|auth|token|jwt|login|signin|signed|logged|csrf|xsrf|nyt-s|datadome)/i;
+
+function isAuthCookie(name) {
+  return AUTH_COOKIE_RE.test(String(name || ''));
+}
+
+/**
+ * @param {Array<{name: string, domain?: string}>} descriptors  rule cookies
+ */
+async function deleteCookies(descriptors, tabUrl, debug) {
   const results = [];
-  for (const name of names) {
+  const list = (Array.isArray(descriptors) ? descriptors : []).filter((d) => d && d.name);
+  for (const rule of list) {
+    const name = String(rule.name);
+    if (isAuthCookie(name)) {
+      // Loud on purpose: a silent skip would look like the rule mysteriously
+      // stopped working, and someone would "fix" it by loosening the guard.
+      console.warn(
+        '[paywall-scripts] refused to delete "' + name + '": that name looks like a login, ' +
+          'session or bot-protection cookie. Deleting it logs you out or triggers a challenge. ' +
+          'Reset a meter with a counter cookie instead (e.g. nyt-a), never with the session.'
+      );
+      results.push({ name, skipped: 'auth-cookie' });
+      continue;
+    }
     let found = [];
     try {
       found = await chrome.cookies.getAll({ name });
@@ -223,6 +260,17 @@ async function deleteCookies(names, tabUrl, debug) {
       continue;
     }
     for (const c of found) {
+      // getAll({ name }) searches the WHOLE cookie store, so without this every
+      // site with a cookie called "meter" would lose it. The rule's domain (and
+      // path, when given) is the contract; honour it.
+      if (rule.domain && !hostHas(c.domain, rule.domain)) {
+        results.push({ name: c.name, domain: c.domain, skipped: 'domain-mismatch' });
+        continue;
+      }
+      if (rule.path && c.path && c.path !== rule.path) {
+        results.push({ name: c.name, domain: c.domain, skipped: 'path-mismatch' });
+        continue;
+      }
       let removed = false;
       let lastError = null;
       for (const url of cookieUrlCandidates(c, tabUrl)) {
@@ -310,9 +358,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
     case 'PC_APPLY_COOKIES':
       (async () => {
-        const names = Array.isArray(msg.names) ? msg.names : [];
+        const descriptors = Array.isArray(msg.cookies)
+          ? msg.cookies
+          : // legacy shape (names only): still accepted, but it carries no
+            // domain, so every same-named cookie becomes a candidate.
+            (Array.isArray(msg.names) ? msg.names.map((name) => ({ name })) : []);
         const tabUrl = sender && sender.tab && sender.tab.url;
-        const results = await deleteCookies(names, tabUrl, msg.debug !== false);
+        const results = await deleteCookies(descriptors, tabUrl, msg.debug !== false);
         return { ok: true, results };
       })()
         .then(sendResponse)
