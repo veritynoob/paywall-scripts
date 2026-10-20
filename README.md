@@ -98,6 +98,7 @@
 | `click` | `selectors[]`, `tries`, `gap` | 轮询点击按钮，每个只点一次 |
 | `blockScripts` | `patterns[]` | 拦截匹配的 `<script src>`（挂钩 setter 和 setAttribute） |
 | `deScrim` | `minCoverage` | 找出盖在正文上的**全页渐变遮罩**并按形状清除（类名是哈希的，见下） |
+| `preserveBody` | `selectors`, `watchMs`, `maxRestores` | **先给全文再删掉**的站点：快照最长的正文，被删短时补回 |
 | `nukeSelector` | `selectors[]` | 硬删除节点 |
 | `redirect` | `toUrl`, `when[]`, `onlyIfGated` | 把标签页送到别处；`{href}`=原始 URL，`{url}`=编码后 |
 | `main` | `js` | 页面主世界跑原文 JS（受页面 CSP 限制，常被禁） |
@@ -171,7 +172,7 @@ NYT 登不上、自动退出、卡在"需要登录"的页面，是三个独立�
 
 ---
 
-## NYT 的墙是三层：遮罩 + 滚动锁 + 服务端截断
+## NYT 的墙是三层：遮罩 + 滚动锁 + 前端截断
 
 把真实页面另存成 MHTML 后逐层拆开（`deScrim` 就是这么验证出来的），一篇被计费墙挡住的
 NYT 文章长这样：
@@ -180,15 +181,29 @@ NYT 文章长这样：
 |---|---|---|
 | **视觉层** | `[data-testid="vi-gateway-container"]` 里一个**空 div**，`position:absolute`，`background-image: linear-gradient(rgba(18,18,18,0), rgba(18,18,18,.65) 402px)`，1472×917 | **能**。类名是 `css-hgm7bf` 这种每次发版都变的哈希，所以规则不写类名：CSS 打 `> div:empty`，`deScrim` 再按"绝对定位 + 带渐变 + 覆盖 ≥25% 视口 + 不包着正文"的形状兜底 |
 | **滚动层** | 同一个容器被切成 `position:fixed; overflow:hidden; height:100vh`，而 `main#site-content` 就在它**里面**：`html.scrollHeight` 卡在 1030（=视口高），可 `main` 的内容有 2817 | **能**。`pcReleaseScrollTrap()` 找"裁切祖先、且内容比它高"的壳，放回文档流；`pcUnlockScroll()` 再用行内 `!important` 钉住滚动 |
-| **正文层** | `section[name="articleBody"]` 里**只有 3 段**，末尾跟着 `<p role="note"><a>Subscribe to The Times</a> to read as many articles as you like.</p>` | **不能**。服务端只发了 3 段，剩下的文字根本不在页面里；CSS/DOM 规则变不出来 |
+| **正文层** | 页面**先把完整正文给你**，随后前端把它重渲染成 3 段 + 一句 "Subscribe to The Times to read as many articles as you like." | **能**。`preserveBody` 在加载瞬间记下最长的那版正文，之后一旦被删短就补回去（`data-paywall-restored` 记录补了几次，有上限防抖） |
+
+> 这里踩过一个坑，值得写下来：第一版是照着**另存的 MHTML** 判断的，看到正文只有 3 段，
+> 就下结论"服务端截断，客户端无解"。其实 MHTML 是在**截断之后**保存的——你观察到
+> "刚加载完是完整的、随后才变成 3 段"，才把方向纠正过来。
+> 推论：诊断工具是在截断**之后**跑的，`verdict` 给出 `server-truncated` 时，它只说明
+> **"此刻页面里只有这么多字"**，不说明 **"服务端只发了这么多字"**。两种情况的区别就是：
+> 刷新后盯着前 1 秒，看它是不是先完整、再缩水。
 
 > 注意滚动锁和遮罩**是同一个容器**：把遮罩去掉不会恢复滚动，`html.scrollHeight` 仍然是视口高度。
 
-所以自带规则对 NYT 的目标是：**去掉遮罩、清掉残留订阅文案**，让页面看起来正常；正文缺口
-只能靠 `redirect` 到存档镜像（同 Bloomberg 的做法，默认关闭，需自己开）。
+所以自带规则对 NYT 的目标是：**去掉遮罩、解开滚动锁、把被前端删掉的正文补回来、清掉残留订阅文案**。
+只有"刷新后从前到后都只有 3 段"的那种站点才是真·服务端截断，那种才需要 `redirect` 到存档镜像
+（同 Bloomberg 的做法，默认关闭，需自己开）。
 
-> 自己取证据：`Check the page I am on → Find paywall elements` 的 `verdict` 在这两种情况下
-> 分别是 `visually-truncated` 和 `server-truncated`——完全不同的墙，别用同一种办法打。
+> 自己取证据：`Check the page I am on → Find paywall elements` 的 `verdict` 会给出
+> `visually-truncated` / `covered-by-overlay` / `server-truncated` 等，但它是**当下**的快照——
+> 判"截断"之前先确认你看到的是不是"先完整、后缩水"。
+
+`preserveBody` 的边界：只认**更长**的版本，缩短超过 `shrinkRatio`（默认 0.75）才补；
+补的次数有上限（默认 6 次）、观察窗口有限（默认 20 秒），所以页面就算反复重渲染也不会变成
+闪烁拉锯。验证方式是一张合成页面：8 段正文 → 600ms 后被站点删成 3 段 → 自动补回 8 段
+（`data-paywall-restored="1"`）；不截断的页面 0 次干预。
 
 `deScrim` 的边界（免得误伤）：只碰 `position: absolute/fixed`、带 `gradient` 背景、
 覆盖视口 ≥25%、且**不包含正文**的元素；`<figure>` / `<picture>` 里的渐变直接跳过（那通常是

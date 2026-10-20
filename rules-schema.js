@@ -95,6 +95,16 @@ const RULE_SCHEMA = {
       { key: 'minCoverage', kind: 'number', label: 'Minimum coverage of the viewport (0-1)', advanced: true, placeholder: '0.25' }
     ]
   },
+  preserveBody: {
+    label: 'Keep the full body',
+    help:
+      'For sites that ship the whole article and then delete most of it after load: snapshots the body while it is complete and restores it when it shrinks.',
+    fields: [
+      { key: 'selectors', kind: 'lines', label: 'Body selectors', advanced: true, placeholder: '[data-testid="articleBody"], article' },
+      { key: 'watchMs', kind: 'number', label: 'How long to watch (ms)', advanced: true, placeholder: '20000' },
+      { key: 'maxRestores', kind: 'number', label: 'Max restores', advanced: true, placeholder: '6' }
+    ]
+  },
   redirect: {
     label: 'Redirect elsewhere',
     help:
@@ -201,6 +211,7 @@ function defaultRule(type) {
     click: { selectors: [] },
     blockScripts: { patterns: [] },
     deScrim: {},
+    preserveBody: {},
     redirect: { toUrl: '', when: [] },
     main: { js: '' }
   };

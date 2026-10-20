@@ -1,5 +1,5 @@
 {
-  "version": 5,
+  "version": 6,
   "debug": true,
   "scripts": [
     {
@@ -12,6 +12,9 @@
         "https://nytimes.com/*"
       ],
       "rules": [
+        {
+          "type": "preserveBody"
+        },
         {
           "type": "cookie",
           "cookies": [

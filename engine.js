@@ -361,6 +361,90 @@ const ACTION_HANDLERS = {
     applyStorageClear(params, session, 'session');
   },
 
+  /**
+   * Keep the fullest article the page ever showed, and put it back if it shrinks.
+   *
+   * Not every truncation is the server's doing. The New York Times ships the whole
+   * article, then the app re-renders it a moment later as three paragraphs plus
+   * "Subscribe to The Times to read as many articles as you like." — the reader
+   * literally sees the full page, then it collapses. Nothing is missing from the
+   * network, so this is fixable: snapshot the body while it is complete and restore
+   * the snapshot when the app shortens it.
+   *
+   * Only the *longest* version is ever kept, so a body that grows (lazy loading,
+   * more paragraphs) simply replaces the snapshot; a body that shrinks by more than
+   * `shrinkRatio` is treated as truncation. Restores are capped so a page that
+   * re-renders in a loop cannot turn into a flicker fight.
+   */
+  preserveBody(params) {
+    const p = params || {};
+    const state = (p.state = p.state || {});
+    if (state._preserveStarted) return 0;
+    state._preserveStarted = true;
+
+    const selectors = p.selectors && p.selectors.length
+      ? p.selectors
+      : ['[data-testid="articleBody"]', '[name="articleBody"]', 'article'];
+    const maxRestores = Number.isFinite(p.maxRestores) ? p.maxRestores : 6;
+    const watchMs = Number.isFinite(p.watchMs) ? p.watchMs : 20000;
+    const shrinkRatio = Number.isFinite(p.shrinkRatio) ? p.shrinkRatio : 0.75;
+
+    let best = { html: '', chars: 0 };
+    let restores = 0;
+    const started = Date.now();
+
+    const findBody = () => {
+      let pick = null;
+      let longest = 0;
+      selectors.forEach((sel) => {
+        safeQueryAll(sel).forEach((el) => {
+          const n = (el.textContent || '').trim().length;
+          if (n > longest) {
+            longest = n;
+            pick = el;
+          }
+        });
+      });
+      return pick;
+    };
+
+    const tick = () => {
+      if (Date.now() - started > watchMs) {
+        clearInterval(timer);
+        return;
+      }
+      const el = findBody();
+      if (!el) return;
+      const chars = (el.textContent || '').trim().length;
+      if (!chars) return;
+
+      if (chars > best.chars) {
+        best = { html: el.innerHTML, chars };
+        return;
+      }
+      if (!best.chars || chars >= best.chars * shrinkRatio) return;
+      if (restores >= maxRestores) return;
+
+      restores++;
+      try {
+        el.innerHTML = best.html;
+        el.setAttribute('data-paywall-restored', String(restores));
+        if (p.debug) {
+          console.debug(
+            '[paywall-scripts] body was cut from ' + best.chars + ' to ' + chars + ' chars; restored (' + restores + '/' + maxRestores + ')'
+          );
+        }
+      } catch (e) {
+        /* ignore */
+      }
+    };
+
+    const timer = setInterval(tick, 120);
+    tick();
+    state.preserveBody = { restored: () => restores, best: () => best.chars };
+    return 0;
+  },
+
   /* Remove truncation flags such as isAccessibleForFree="false".            */
   untruncate(params) {
     (params.selectors || []).forEach((sel) => {
